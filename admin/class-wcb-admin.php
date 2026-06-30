@@ -13,6 +13,7 @@ class WCB_Admin {
             array('wcb-sitemap', __('Sitemap Scan', 'woo-catalog-bridge'), __('Sitemap Scan', 'woo-catalog-bridge'), 'sitemap'),
             array('wcb-batch-import', __('Batch Import', 'woo-catalog-bridge'), __('Batch Import', 'woo-catalog-bridge'), 'batch_import'),
             array('wcb-comparison', __('Comparison', 'woo-catalog-bridge'), __('Comparison', 'woo-catalog-bridge'), 'comparison'),
+            array('wcb-price-sync', __('Price Sync', 'woo-catalog-bridge'), __('Price Sync', 'woo-catalog-bridge'), 'price_sync'),
             array('wcb-products', __('Discovered Products', 'woo-catalog-bridge'), __('Discovered Products', 'woo-catalog-bridge'), 'products'),
             array('wcb-categories', __('Categories', 'woo-catalog-bridge'), __('Categories', 'woo-catalog-bridge'), 'categories'),
             array('wcb-scrape', __('Product Scrape', 'woo-catalog-bridge'), __('Product Scrape', 'woo-catalog-bridge'), 'scrape'),
@@ -93,6 +94,23 @@ class WCB_Admin {
         $table->search_box(__('Search comparisons', 'woo-catalog-bridge'), 'wcb-comparison');
         $table->display();
         echo '</form>';
+        $this->footer();
+    }
+    public function price_sync() {
+        $this->header(__('Price Sync Engine', 'woo-catalog-bridge'));
+        $candidates = WCB_Repository::price_sync_candidates(array(), 200, 0);
+        echo '<div class="wcb-panel"><p>' . esc_html__('Synchronize WooCommerce prices from the source price stored in comparison rows. Run Comparison first, then sync one product, multiple products, or all products. Every price change is logged.', 'woo-catalog-bridge') . '</p>';
+        echo '<fieldset><legend class="screen-reader-text">' . esc_html__('Price sync mode', 'woo-catalog-bridge') . '</legend>';
+        echo '<label><input type="radio" name="wcb_price_sync_mode" value="one" data-wcb-price-sync-mode /> ' . esc_html__('One product', 'woo-catalog-bridge') . '</label><br />';
+        echo '<label><input type="radio" name="wcb_price_sync_mode" value="multiple" data-wcb-price-sync-mode /> ' . esc_html__('Multiple products', 'woo-catalog-bridge') . '</label><br />';
+        echo '<label><input type="radio" name="wcb_price_sync_mode" value="all" data-wcb-price-sync-mode checked /> ' . esc_html__('All products', 'woo-catalog-bridge') . '</label></fieldset>';
+        echo '<select data-wcb-comparison-ids multiple size="10" class="large-text">';
+        foreach ($candidates as $row) {
+            echo '<option value="' . esc_attr($row['id']) . '">#' . esc_html($row['id']) . ' — ' . esc_html($row['name']) . ' — ' . esc_html($row['source_price']) . ' → ' . esc_html($row['destination_price']) . '</option>';
+        }
+        echo '</select><p class="description">' . esc_html__('Rows without a destination product or source price are excluded.', 'woo-catalog-bridge') . '</p>';
+        echo '<p><button class="button button-primary wcb-ajax-action" data-task="price_sync">' . esc_html__('Queue Price Sync', 'woo-catalog-bridge') . '</button><span class="spinner"></span></p></div>';
+        $this->render_jobs_panel();
         $this->footer();
     }
     public function sync() { $this->action_page(__('Synchronization', 'woo-catalog-bridge'), 'sync_products', __('Import or update scraped products in WooCommerce.', 'woo-catalog-bridge')); }

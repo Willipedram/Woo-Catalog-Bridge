@@ -307,6 +307,33 @@ class WCB_Repository {
         return (int) ($params ? $wpdb->get_var($wpdb->prepare($sql, $params)) : $wpdb->get_var($sql));
     }
 
+    public static function price_sync_candidates($comparison_ids = array(), $number = 20, $offset = 0) {
+        global $wpdb;
+        $where = "WHERE destination_product_id > 0 AND source_price <> ''";
+        $params = array();
+        $comparison_ids = array_values(array_filter(array_map('absint', (array) $comparison_ids)));
+        if ($comparison_ids) {
+            $where .= ' AND id IN (' . implode(',', array_fill(0, count($comparison_ids), '%d')) . ')';
+            $params = array_merge($params, $comparison_ids);
+        }
+        $params[] = (int) $number;
+        $params[] = (int) $offset;
+        return $wpdb->get_results($wpdb->prepare("SELECT * FROM " . self::table('comparisons') . " $where ORDER BY id ASC LIMIT %d OFFSET %d", $params), ARRAY_A);
+    }
+
+    public static function count_price_sync_candidates($comparison_ids = array()) {
+        global $wpdb;
+        $where = "WHERE destination_product_id > 0 AND source_price <> ''";
+        $params = array();
+        $comparison_ids = array_values(array_filter(array_map('absint', (array) $comparison_ids)));
+        if ($comparison_ids) {
+            $where .= ' AND id IN (' . implode(',', array_fill(0, count($comparison_ids), '%d')) . ')';
+            $params = array_merge($params, $comparison_ids);
+        }
+        $sql = "SELECT COUNT(*) FROM " . self::table('comparisons') . " $where";
+        return (int) ($params ? $wpdb->get_var($wpdb->prepare($sql, $params)) : $wpdb->get_var($sql));
+    }
+
     public static function list_import_jobs($number = 10, $offset = 0) {
         global $wpdb;
         return $wpdb->get_results($wpdb->prepare("SELECT * FROM " . self::table('import_jobs') . " ORDER BY created_at DESC LIMIT %d OFFSET %d", (int) $number, (int) $offset), ARRAY_A);

@@ -95,6 +95,9 @@ class WCB_Queue {
                     ));
                     WCB_Repository::complete_import_job($job_id);
                     break;
+                case 'price_sync':
+                    WCB_Price_Sync_Engine::process($job_id, $payload);
+                    break;
                 case 'sync_products':
                     self::complete_placeholder_job($job_id, $job['job_type']);
                     break;

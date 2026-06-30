@@ -44,6 +44,7 @@
     function runAction($button, originalText) {
         var $panel = $button.closest('.wcb-panel');
         var categoryIds = $panel.find('[data-wcb-category-ids]').val() || [];
+        var comparisonIds = $panel.find('[data-wcb-comparison-ids]').val() || [];
         $.post(WCBAdmin.ajaxUrl, {
             action: 'wcb_run_action',
             nonce: WCBAdmin.nonce,
@@ -52,6 +53,8 @@
             product_url: $panel.find('[data-wcb-product-url]').val() || '',
             batch_mode: $panel.find('[data-wcb-batch-mode]:checked').val() || 'all',
             category_ids: categoryIds,
+            price_sync_mode: $panel.find('[data-wcb-price-sync-mode]:checked').val() || 'all',
+            comparison_ids: comparisonIds,
             content_cleaner_replacement: $panel.find('[data-wcb-setting="content_cleaner_replacement"]').val() || '',
             content_cleaner_rules: $panel.find('[data-wcb-setting="content_cleaner_rules"]').val() || ''
         }).done(function (response) {

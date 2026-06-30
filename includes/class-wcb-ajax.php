@@ -56,6 +56,18 @@ class WCB_Ajax {
                 $job_id = WCB_Queue::enqueue('compare_products');
                 $message = sprintf(__('Comparison job #%d was queued.', 'woo-catalog-bridge'), $job_id);
                 break;
+            case 'price_sync':
+                $mode = isset($_POST['price_sync_mode']) ? sanitize_key(wp_unslash($_POST['price_sync_mode'])) : 'all';
+                $comparison_ids = isset($_POST['comparison_ids']) ? array_map('absint', (array) wp_unslash($_POST['comparison_ids'])) : array();
+                if (!in_array($mode, array('one', 'multiple', 'all'), true)) {
+                    wp_send_json_error(array('message' => __('Invalid price sync mode.', 'woo-catalog-bridge')), 400);
+                }
+                if ('all' !== $mode && !$comparison_ids) {
+                    wp_send_json_error(array('message' => __('Select at least one comparison row.', 'woo-catalog-bridge')), 400);
+                }
+                $job_id = WCB_Price_Sync_Engine::enqueue($mode, $comparison_ids);
+                $message = sprintf(__('Price sync job #%d was queued.', 'woo-catalog-bridge'), $job_id);
+                break;
             case 'sync_products':
                 $job_id = WCB_Queue::enqueue('sync_products');
                 $message = sprintf(__('Synchronization job #%d was queued.', 'woo-catalog-bridge'), $job_id);
