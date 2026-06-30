@@ -86,6 +86,15 @@ class WCB_Queue {
                 case 'batch_import':
                     WCB_Batch_Importer::process($job_id, $payload);
                     break;
+                case 'compare_products':
+                    $count = WCB_Comparison_Engine::run();
+                    WCB_Repository::update_import_job($job_id, array(
+                        'total_items' => $count,
+                        'processed_items' => $count,
+                        'updated_at' => current_time('mysql'),
+                    ));
+                    WCB_Repository::complete_import_job($job_id);
+                    break;
                 case 'sync_products':
                     self::complete_placeholder_job($job_id, $job['job_type']);
                     break;

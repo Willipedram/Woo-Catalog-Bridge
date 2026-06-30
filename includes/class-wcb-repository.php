@@ -20,6 +20,8 @@ class WCB_Repository {
             title varchar(255) DEFAULT '',
             sku varchar(191) DEFAULT '',
             source_hash varchar(64) DEFAULT '',
+            source_price varchar(60) DEFAULT '',
+            source_stock varchar(60) DEFAULT '',
             category varchar(190) DEFAULT '',
             status varchar(30) DEFAULT 'discovered',
             woo_product_id bigint(20) unsigned DEFAULT 0,
@@ -103,6 +105,27 @@ class WCB_Repository {
             KEY created_at (created_at)
         ) $charset;");
 
+        dbDelta("CREATE TABLE " . self::table('comparisons') . " (
+            id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+            name varchar(255) NOT NULL DEFAULT '',
+            sku varchar(191) DEFAULT '',
+            source_price varchar(60) DEFAULT '',
+            destination_price varchar(60) DEFAULT '',
+            source_stock varchar(60) DEFAULT '',
+            destination_stock varchar(60) DEFAULT '',
+            status varchar(40) NOT NULL,
+            source_product_id bigint(20) unsigned DEFAULT 0,
+            destination_product_id bigint(20) unsigned DEFAULT 0,
+            source_url text NULL,
+            compared_at datetime NOT NULL,
+            PRIMARY KEY  (id),
+            KEY sku (sku),
+            KEY status (status),
+            KEY source_product_id (source_product_id),
+            KEY destination_product_id (destination_product_id),
+            KEY compared_at (compared_at)
+        ) $charset;");
+
         add_option('wcb_settings', array(
             'sitemap_url' => 'https://sazkala.com/sitemap_index.xml',
             'sync_batch_size' => 20,
@@ -130,6 +153,7 @@ class WCB_Repository {
             'jobs_pending' => (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM " . self::table('import_jobs') . " WHERE status = %s", 'Pending')),
             'jobs_running' => (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM " . self::table('import_jobs') . " WHERE status = %s", 'Running')),
             'jobs_failed' => (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM " . self::table('import_jobs') . " WHERE status = %s", 'Failed')),
+            'comparisons' => (int) $wpdb->get_var("SELECT COUNT(*) FROM " . self::table('comparisons')),
             'imported' => (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM $products WHERE status = %s", 'imported')),
             'errors' => (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM $logs WHERE level = %s", 'error')),
             'active' => (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM " . self::table('import_jobs') . " WHERE status IN (%s,%s)", 'Pending', 'Running')),
@@ -194,6 +218,8 @@ class WCB_Repository {
             'source_hash' => $source_url ? md5($source_url) : '',
             'title' => isset($data['title']) ? sanitize_text_field($data['title']) : '',
             'sku' => isset($data['sku']) ? sanitize_text_field($data['sku']) : '',
+            'source_price' => isset($data['price']) ? sanitize_text_field($data['price']) : '',
+            'source_stock' => isset($data['stock_status']) ? sanitize_text_field($data['stock_status']) : '',
             'category' => isset($data['brand']) ? sanitize_text_field($data['brand']) : '',
             'status' => sanitize_key($status),
             'woo_product_id' => (int) $woo_product_id,
@@ -223,6 +249,62 @@ class WCB_Repository {
             return $wpdb->get_results($wpdb->prepare("SELECT id, name, url FROM $table WHERE type = %s AND id IN ($placeholders) ORDER BY name ASC", array_merge(array('category'), $ids)), ARRAY_A);
         }
         return $wpdb->get_results($wpdb->prepare("SELECT id, name, url FROM $table WHERE type = %s ORDER BY name ASC", 'category'), ARRAY_A);
+    }
+
+    public static function list_all_source_products() {
+        global $wpdb;
+        return $wpdb->get_results("SELECT * FROM " . self::table('products') . " WHERE status IN ('imported','duplicate','discovered') ORDER BY id ASC", ARRAY_A);
+    }
+
+    public static function clear_comparisons() {
+        global $wpdb;
+        $wpdb->query("TRUNCATE TABLE " . self::table('comparisons'));
+    }
+
+    public static function insert_comparison($row) {
+        global $wpdb;
+        $row['compared_at'] = current_time('mysql');
+        $wpdb->insert(self::table('comparisons'), $row);
+        return (int) $wpdb->insert_id;
+    }
+
+    public static function list_comparisons($args = array()) {
+        global $wpdb;
+        $args = wp_parse_args($args, array('number' => 20, 'offset' => 0, 'status' => '', 'search' => '', 'orderby' => 'compared_at', 'order' => 'DESC'));
+        $where = 'WHERE 1=1';
+        $params = array();
+        if ($args['status']) {
+            $where .= ' AND status = %s';
+            $params[] = $args['status'];
+        }
+        if ($args['search']) {
+            $like = '%' . $wpdb->esc_like($args['search']) . '%';
+            $where .= ' AND (name LIKE %s OR sku LIKE %s OR source_url LIKE %s)';
+            $params = array_merge($params, array($like, $like, $like));
+        }
+        $allowed = array('name', 'sku', 'source_price', 'destination_price', 'source_stock', 'destination_stock', 'status', 'compared_at');
+        $orderby = in_array($args['orderby'], $allowed, true) ? $args['orderby'] : 'compared_at';
+        $order = 'ASC' === strtoupper($args['order']) ? 'ASC' : 'DESC';
+        $params[] = (int) $args['number'];
+        $params[] = (int) $args['offset'];
+        return $wpdb->get_results($wpdb->prepare("SELECT * FROM " . self::table('comparisons') . " $where ORDER BY $orderby $order LIMIT %d OFFSET %d", $params), ARRAY_A);
+    }
+
+    public static function count_comparisons($args = array()) {
+        global $wpdb;
+        $where = 'WHERE 1=1';
+        $params = array();
+        if (!empty($args['status'])) {
+            $where .= ' AND status = %s';
+            $params[] = $args['status'];
+        }
+        if (!empty($args['search'])) {
+            $like = '%' . $wpdb->esc_like($args['search']) . '%';
+            $where .= ' AND (name LIKE %s OR sku LIKE %s OR source_url LIKE %s)';
+            $params = array_merge($params, array($like, $like, $like));
+        }
+        $sql = "SELECT COUNT(*) FROM " . self::table('comparisons') . " $where";
+        return (int) ($params ? $wpdb->get_var($wpdb->prepare($sql, $params)) : $wpdb->get_var($sql));
     }
 
     public static function list_import_jobs($number = 10, $offset = 0) {

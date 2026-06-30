@@ -16,6 +16,9 @@
 .wcb-status-running { background: #fff8e5; color: #996800; }
 .wcb-status-completed { background: #edfaef; color: #008a20; }
 .wcb-status-failed, .wcb-status-canceled { background: #fcf0f1; color: #b32d2e; }
+.wcb-status-equal { background: #edfaef; color: #008a20; }
+.wcb-status-price-changed, .wcb-status-stock-changed { background: #fff8e5; color: #996800; }
+.wcb-status-only-source, .wcb-status-only-destination { background: #f0f6fc; color: #135e96; }
 .wcb-status-imported { background: #edfaef; color: #008a20; }
 .wcb-status-error, .wcb-log-error { background: #fcf0f1; color: #b32d2e; }
 .wcb-log-info { background: #f0f6fc; color: #135e96; }

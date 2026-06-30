@@ -52,6 +52,10 @@ class WCB_Ajax {
                 $job_id = WCB_Batch_Importer::start($mode, $category_ids);
                 $message = sprintf(__('Batch import job #%d was queued.', 'woo-catalog-bridge'), $job_id);
                 break;
+            case 'compare_products':
+                $job_id = WCB_Queue::enqueue('compare_products');
+                $message = sprintf(__('Comparison job #%d was queued.', 'woo-catalog-bridge'), $job_id);
+                break;
             case 'sync_products':
                 $job_id = WCB_Queue::enqueue('sync_products');
                 $message = sprintf(__('Synchronization job #%d was queued.', 'woo-catalog-bridge'), $job_id);

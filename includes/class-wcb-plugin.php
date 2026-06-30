@@ -29,6 +29,7 @@ final class WCB_Plugin {
         require_once WCB_PATH . 'includes/class-wcb-content-cleaner.php';
         require_once WCB_PATH . 'includes/class-wcb-product-importer.php';
         require_once WCB_PATH . 'includes/class-wcb-batch-importer.php';
+        require_once WCB_PATH . 'includes/class-wcb-comparison-engine.php';
         require_once WCB_PATH . 'includes/class-wcb-queue.php';
         require_once WCB_PATH . 'includes/class-wcb-ajax.php';
         require_once WCB_PATH . 'admin/class-wcb-admin.php';

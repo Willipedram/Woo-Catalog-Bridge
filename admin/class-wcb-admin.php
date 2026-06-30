@@ -12,6 +12,7 @@ class WCB_Admin {
             array($this->slug, __('Dashboard', 'woo-catalog-bridge'), __('Dashboard', 'woo-catalog-bridge'), 'dashboard'),
             array('wcb-sitemap', __('Sitemap Scan', 'woo-catalog-bridge'), __('Sitemap Scan', 'woo-catalog-bridge'), 'sitemap'),
             array('wcb-batch-import', __('Batch Import', 'woo-catalog-bridge'), __('Batch Import', 'woo-catalog-bridge'), 'batch_import'),
+            array('wcb-comparison', __('Comparison', 'woo-catalog-bridge'), __('Comparison', 'woo-catalog-bridge'), 'comparison'),
             array('wcb-products', __('Discovered Products', 'woo-catalog-bridge'), __('Discovered Products', 'woo-catalog-bridge'), 'products'),
             array('wcb-categories', __('Categories', 'woo-catalog-bridge'), __('Categories', 'woo-catalog-bridge'), 'categories'),
             array('wcb-scrape', __('Product Scrape', 'woo-catalog-bridge'), __('Product Scrape', 'woo-catalog-bridge'), 'scrape'),
@@ -80,6 +81,18 @@ class WCB_Admin {
         echo '</select><p class="description">' . esc_html__('Run Sitemap Scan first if no categories are listed.', 'woo-catalog-bridge') . '</p>';
         echo '<p><button class="button button-primary wcb-ajax-action" data-task="batch_import">' . esc_html__('Queue Batch Import', 'woo-catalog-bridge') . '</button><span class="spinner"></span></p></div>';
         $this->render_jobs_panel();
+        $this->footer();
+    }
+    public function comparison() {
+        $this->header(__('Comparison Engine', 'woo-catalog-bridge'));
+        echo '<div class="wcb-panel"><p>' . esc_html__('Compare source products with WooCommerce destination products by SKU, source URL, then product name. The comparison table shows source/destination price, source/destination stock, and status.', 'woo-catalog-bridge') . '</p>';
+        echo '<button class="button button-primary wcb-ajax-action" data-task="compare_products">' . esc_html__('Run Comparison', 'woo-catalog-bridge') . '</button><span class="spinner"></span></div>';
+        $table = new WCB_Comparisons_List_Table();
+        $table->prepare_items();
+        echo '<form method="get"><input type="hidden" name="page" value="wcb-comparison" />';
+        $table->search_box(__('Search comparisons', 'woo-catalog-bridge'), 'wcb-comparison');
+        $table->display();
+        echo '</form>';
         $this->footer();
     }
     public function sync() { $this->action_page(__('Synchronization', 'woo-catalog-bridge'), 'sync_products', __('Import or update scraped products in WooCommerce.', 'woo-catalog-bridge')); }
