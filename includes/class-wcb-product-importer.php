@@ -19,6 +19,7 @@ class WCB_Product_Importer {
 
         $html = self::fetch_html($url);
         $data = self::extract_product_data($html, $url);
+        $data = WCB_Content_Cleaner::clean_product_data($data);
         if (empty($data['title'])) {
             throw new RuntimeException(__('Unable to extract product title from source URL.', 'woo-catalog-bridge'));
         }

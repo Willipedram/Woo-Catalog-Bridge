@@ -26,6 +26,7 @@ final class WCB_Plugin {
     private function includes() {
         require_once WCB_PATH . 'includes/class-wcb-repository.php';
         require_once WCB_PATH . 'includes/class-wcb-sitemap-scanner.php';
+        require_once WCB_PATH . 'includes/class-wcb-content-cleaner.php';
         require_once WCB_PATH . 'includes/class-wcb-product-importer.php';
         require_once WCB_PATH . 'includes/class-wcb-queue.php';
         require_once WCB_PATH . 'includes/class-wcb-ajax.php';

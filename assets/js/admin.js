@@ -48,7 +48,9 @@
             nonce: WCBAdmin.nonce,
             task: $button.data('task'),
             job_id: $button.data('job-id') || 0,
-            product_url: $panel.find('[data-wcb-product-url]').val() || ''
+            product_url: $panel.find('[data-wcb-product-url]').val() || '',
+            content_cleaner_replacement: $panel.find('[data-wcb-setting="content_cleaner_replacement"]').val() || '',
+            content_cleaner_rules: $panel.find('[data-wcb-setting="content_cleaner_rules"]').val() || ''
         }).done(function (response) {
             if (!response.success) {
                 showNotice((response.data && response.data.message) || WCBAdmin.i18n.failed, 'error');

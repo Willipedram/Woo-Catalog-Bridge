@@ -108,6 +108,13 @@ class WCB_Repository {
             'sync_batch_size' => 20,
             'schedule_enabled' => 0,
             'schedule_interval' => 'hourly',
+            'content_cleaner_replacement' => get_bloginfo('name'),
+            'content_cleaner_rules' => array(
+                array('search' => 'سازکالا', 'replace' => get_bloginfo('name')),
+                array('search' => 'ساز کالا', 'replace' => get_bloginfo('name')),
+                array('search' => 'sazkala', 'replace' => get_bloginfo('name')),
+                array('search' => 'saz kala', 'replace' => get_bloginfo('name')),
+            ),
         ));
     }
 

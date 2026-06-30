@@ -58,6 +58,12 @@ class WCB_Ajax {
                 }
                 $message = sprintf(__('Job #%d was canceled.', 'woo-catalog-bridge'), $job_id);
                 break;
+            case 'save_settings':
+                $replacement = isset($_POST['content_cleaner_replacement']) ? sanitize_text_field(wp_unslash($_POST['content_cleaner_replacement'])) : '';
+                $rules = isset($_POST['content_cleaner_rules']) ? sanitize_textarea_field(wp_unslash($_POST['content_cleaner_rules'])) : '';
+                WCB_Content_Cleaner::update_settings($replacement, $rules);
+                $message = __('Settings saved.', 'woo-catalog-bridge');
+                break;
             default:
                 wp_send_json_error(array('message' => __('Unknown task.', 'woo-catalog-bridge')), 400);
         }
