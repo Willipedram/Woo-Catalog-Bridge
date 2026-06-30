@@ -28,32 +28,69 @@
         });
     }
 
+    function updateProgress($panel, progress) {
+        if (!progress) {
+            return;
+        }
+        var percent = progress.percent || 0;
+        $panel.find('[data-progress-wrap]').show();
+        $panel.find('[data-progress-bar]').css('width', percent + '%');
+        $panel.find('[data-progress-text]').text(
+            progress.processed_sitemaps + '/' + progress.total_sitemaps + ' sitemaps — ' +
+            progress.total_items + ' items — ' + percent + '%'
+        );
+    }
+
+    function runAction($button, originalText) {
+        var $panel = $button.closest('.wcb-panel');
+        var categoryIds = $panel.find('[data-wcb-category-ids]').val() || [];
+        var comparisonIds = $panel.find('[data-wcb-comparison-ids]').val() || [];
+        $.post(WCBAdmin.ajaxUrl, {
+            action: 'wcb_run_action',
+            nonce: WCBAdmin.nonce,
+            task: $button.data('task'),
+            job_id: $button.data('job-id') || 0,
+            product_url: $panel.find('[data-wcb-product-url]').val() || '',
+            batch_mode: $panel.find('[data-wcb-batch-mode]:checked').val() || 'all',
+            category_ids: categoryIds,
+            price_sync_mode: $panel.find('[data-wcb-price-sync-mode]:checked').val() || 'all',
+            comparison_ids: comparisonIds,
+            content_cleaner_replacement: $panel.find('[data-wcb-setting="content_cleaner_replacement"]').val() || '',
+            content_cleaner_rules: $panel.find('[data-wcb-setting="content_cleaner_rules"]').val() || ''
+        }).done(function (response) {
+            if (!response.success) {
+                showNotice((response.data && response.data.message) || WCBAdmin.i18n.failed, 'error');
+                return;
+            }
+            showNotice(response.data.message || WCBAdmin.i18n.done, 'success');
+            if (response.data.stats) {
+                updateStats(response.data.stats);
+            }
+            if (response.data.progress) {
+                updateProgress($panel, response.data.progress);
+            }
+            if ($button.hasClass('wcb-sitemap-action') && !response.data.background && !response.data.complete && response.data.status && response.data.status !== 'failed') {
+                window.setTimeout(function () {
+                    runAction($button, originalText);
+                }, 250);
+                return;
+            }
+            $button.prop('disabled', false).text(originalText);
+            $panel.find('.spinner').removeClass('is-active');
+        }).fail(function () {
+            showNotice(WCBAdmin.i18n.failed, 'error');
+            $button.prop('disabled', false).text(originalText);
+            $panel.find('.spinner').removeClass('is-active');
+        });
+    }
+
     $(document).on('click', '.wcb-ajax-action', function (event) {
         event.preventDefault();
         var $button = $(this);
         var originalText = $button.text();
         $button.prop('disabled', true).text(WCBAdmin.i18n.working);
         $button.closest('.wcb-panel').find('.spinner').addClass('is-active');
-
-        $.post(WCBAdmin.ajaxUrl, {
-            action: 'wcb_run_action',
-            nonce: WCBAdmin.nonce,
-            task: $button.data('task')
-        }).done(function (response) {
-            if (response.success) {
-                showNotice(response.data.message || WCBAdmin.i18n.done, 'success');
-                if (response.data.stats) {
-                    updateStats(response.data.stats);
-                }
-            } else {
-                showNotice((response.data && response.data.message) || WCBAdmin.i18n.failed, 'error');
-            }
-        }).fail(function () {
-            showNotice(WCBAdmin.i18n.failed, 'error');
-        }).always(function () {
-            $button.prop('disabled', false).text(originalText);
-            $button.closest('.wcb-panel').find('.spinner').removeClass('is-active');
-        });
+        runAction($button, originalText);
     });
 
     refreshStats();

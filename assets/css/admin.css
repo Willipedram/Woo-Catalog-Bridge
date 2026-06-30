@@ -7,8 +7,18 @@
 .wcb-card strong { color: #1d2327; display: block; font-size: 34px; line-height: 1.15; }
 .wcb-panel { margin-top: 20px; padding: 20px; }
 .wcb-panel .spinner { float: none; margin-top: 4px; }
+.wcb-progress { margin-top: 16px; max-width: 640px; }
+.wcb-progress-bar { background: #f0f0f1; border-radius: 999px; height: 12px; overflow: hidden; }
+.wcb-progress-bar span { background: #2271b1; display: block; height: 100%; transition: width .2s ease; width: 0; }
 .wcb-status, .wcb-log-level { border-radius: 999px; display: inline-block; font-size: 12px; font-weight: 600; padding: 3px 9px; }
 .wcb-status-discovered { background: #e7f5ff; color: #006ba1; }
+.wcb-status-pending { background: #f0f6fc; color: #135e96; }
+.wcb-status-running { background: #fff8e5; color: #996800; }
+.wcb-status-completed { background: #edfaef; color: #008a20; }
+.wcb-status-failed, .wcb-status-canceled { background: #fcf0f1; color: #b32d2e; }
+.wcb-status-equal { background: #edfaef; color: #008a20; }
+.wcb-status-price-changed, .wcb-status-stock-changed { background: #fff8e5; color: #996800; }
+.wcb-status-only-source, .wcb-status-only-destination { background: #f0f6fc; color: #135e96; }
 .wcb-status-imported { background: #edfaef; color: #008a20; }
 .wcb-status-error, .wcb-log-error { background: #fcf0f1; color: #b32d2e; }
 .wcb-log-info { background: #f0f6fc; color: #135e96; }
