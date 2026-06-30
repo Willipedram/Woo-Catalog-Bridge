@@ -19,12 +19,14 @@ final class WCB_Plugin {
         add_action('admin_enqueue_scripts', array($this, 'admin_assets'));
         add_action('wp_ajax_wcb_dashboard_stats', array('WCB_Ajax', 'dashboard_stats'));
         add_action('wp_ajax_wcb_run_action', array('WCB_Ajax', 'run_action'));
+        add_action(WCB_Queue::HOOK, array('WCB_Queue', 'process'), 10, 1);
         add_filter('cron_schedules', array($this, 'cron_schedules'));
     }
 
     private function includes() {
         require_once WCB_PATH . 'includes/class-wcb-repository.php';
         require_once WCB_PATH . 'includes/class-wcb-sitemap-scanner.php';
+        require_once WCB_PATH . 'includes/class-wcb-queue.php';
         require_once WCB_PATH . 'includes/class-wcb-ajax.php';
         require_once WCB_PATH . 'admin/class-wcb-admin.php';
         require_once WCB_PATH . 'admin/class-wcb-list-tables.php';

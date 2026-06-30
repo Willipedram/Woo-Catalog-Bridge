@@ -74,6 +74,31 @@ class WCB_Repository {
             KEY discovered_at (discovered_at)
         ) $charset;");
 
+        dbDelta("CREATE TABLE " . self::table('import_jobs') . " (
+            id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+            source_id bigint(20) unsigned NOT NULL DEFAULT 0,
+            job_type varchar(60) NOT NULL,
+            status varchar(30) NOT NULL DEFAULT 'Pending',
+            total_items int(11) unsigned NOT NULL DEFAULT 0,
+            processed_items int(11) unsigned NOT NULL DEFAULT 0,
+            failed_items int(11) unsigned NOT NULL DEFAULT 0,
+            attempts int(11) unsigned NOT NULL DEFAULT 0,
+            max_attempts int(11) unsigned NOT NULL DEFAULT 3,
+            payload longtext NULL,
+            action_id bigint(20) unsigned NULL,
+            last_error text NULL,
+            started_at datetime NULL,
+            finished_at datetime NULL,
+            created_at datetime NOT NULL,
+            updated_at datetime NOT NULL,
+            PRIMARY KEY  (id),
+            KEY source_id (source_id),
+            KEY status (status),
+            KEY job_type (job_type),
+            KEY action_id (action_id),
+            KEY created_at (created_at)
+        ) $charset;");
+
         add_option('wcb_settings', array(
             'sitemap_url' => 'https://sazkala.com/sitemap_index.xml',
             'sync_batch_size' => 20,
@@ -91,10 +116,66 @@ class WCB_Repository {
             'sitemap_items' => (int) $wpdb->get_var("SELECT COUNT(*) FROM " . self::table('sitemap_items')),
             'sitemap_products' => (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM " . self::table('sitemap_items') . " WHERE type = %s", 'product')),
             'sitemap_categories' => (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM " . self::table('sitemap_items') . " WHERE type = %s", 'category')),
+            'jobs_pending' => (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM " . self::table('import_jobs') . " WHERE status = %s", 'Pending')),
+            'jobs_running' => (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM " . self::table('import_jobs') . " WHERE status = %s", 'Running')),
+            'jobs_failed' => (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM " . self::table('import_jobs') . " WHERE status = %s", 'Failed')),
             'imported' => (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM $products WHERE status = %s", 'imported')),
             'errors' => (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM $logs WHERE level = %s", 'error')),
-            'active' => (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM $products WHERE status IN (%s,%s,%s)", 'queued', 'scraping', 'syncing')),
+            'active' => (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM " . self::table('import_jobs') . " WHERE status IN (%s,%s)", 'Pending', 'Running')),
         );
+    }
+
+    public static function create_import_job($job_type, $payload = array(), $source_id = 0, $max_attempts = 3) {
+        global $wpdb;
+        $now = current_time('mysql');
+        $wpdb->insert(self::table('import_jobs'), array(
+            'source_id' => (int) $source_id,
+            'job_type' => sanitize_key($job_type),
+            'status' => 'Pending',
+            'total_items' => 0,
+            'processed_items' => 0,
+            'failed_items' => 0,
+            'attempts' => 0,
+            'max_attempts' => max(1, (int) $max_attempts),
+            'payload' => wp_json_encode($payload),
+            'action_id' => null,
+            'last_error' => null,
+            'started_at' => null,
+            'finished_at' => null,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ));
+        return (int) $wpdb->insert_id;
+    }
+
+    public static function get_import_job($job_id) {
+        global $wpdb;
+        return $wpdb->get_row($wpdb->prepare("SELECT * FROM " . self::table('import_jobs') . " WHERE id = %d", (int) $job_id), ARRAY_A);
+    }
+
+    public static function update_import_job($job_id, $data) {
+        global $wpdb;
+        $wpdb->update(self::table('import_jobs'), $data, array('id' => (int) $job_id));
+    }
+
+    public static function update_import_job_payload($job_id, $payload) {
+        self::update_import_job($job_id, array(
+            'payload' => wp_json_encode($payload),
+            'updated_at' => current_time('mysql'),
+        ));
+    }
+
+    public static function complete_import_job($job_id) {
+        self::update_import_job($job_id, array(
+            'status' => 'Completed',
+            'finished_at' => current_time('mysql'),
+            'updated_at' => current_time('mysql'),
+        ));
+    }
+
+    public static function list_import_jobs($number = 10, $offset = 0) {
+        global $wpdb;
+        return $wpdb->get_results($wpdb->prepare("SELECT * FROM " . self::table('import_jobs') . " ORDER BY created_at DESC LIMIT %d OFFSET %d", (int) $number, (int) $offset), ARRAY_A);
     }
 
     public static function list_products($args = array()) {

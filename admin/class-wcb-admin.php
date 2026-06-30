@@ -52,6 +52,7 @@ class WCB_Admin {
         echo '<button class="button button-primary wcb-ajax-action wcb-sitemap-action" data-task="scan_sitemap">' . esc_html__('Run / Resume Scan', 'woo-catalog-bridge') . '</button><span class="spinner"></span><div class="wcb-progress" data-progress-wrap style="display:none"><div class="wcb-progress-bar"><span data-progress-bar></span></div><p data-progress-text></p></div></div>';
         $stats = WCB_Repository::stats();
         echo '<div class="wcb-grid wcb-stats"><div class="wcb-card"><span class="wcb-card-label">' . esc_html__('Sitemap Items', 'woo-catalog-bridge') . '</span><strong data-stat="sitemap_items">' . esc_html($stats['sitemap_items']) . '</strong></div><div class="wcb-card"><span class="wcb-card-label">' . esc_html__('Product URLs', 'woo-catalog-bridge') . '</span><strong data-stat="sitemap_products">' . esc_html($stats['sitemap_products']) . '</strong></div><div class="wcb-card"><span class="wcb-card-label">' . esc_html__('Category URLs', 'woo-catalog-bridge') . '</span><strong data-stat="sitemap_categories">' . esc_html($stats['sitemap_categories']) . '</strong></div></div>';
+        $this->render_jobs_panel();
         $this->footer();
     }
     public function scrape() { $this->action_page(__('Product Scrape', 'woo-catalog-bridge'), 'scrape_product', __('Scrape queued product pages and normalize product data.', 'woo-catalog-bridge')); }
@@ -80,6 +81,26 @@ class WCB_Admin {
         $table->prepare_items();
         $table->display();
         $this->footer();
+    }
+
+    private function render_jobs_panel() {
+        $jobs = WCB_Repository::list_import_jobs(10);
+        echo '<div class="wcb-panel"><h2>' . esc_html__('Import Jobs', 'woo-catalog-bridge') . '</h2>';
+        echo '<table class="widefat striped"><thead><tr><th>' . esc_html__('ID', 'woo-catalog-bridge') . '</th><th>' . esc_html__('Operation', 'woo-catalog-bridge') . '</th><th>' . esc_html__('Status', 'woo-catalog-bridge') . '</th><th>' . esc_html__('Progress', 'woo-catalog-bridge') . '</th><th>' . esc_html__('Attempts', 'woo-catalog-bridge') . '</th><th>' . esc_html__('Last Error', 'woo-catalog-bridge') . '</th><th>' . esc_html__('Actions', 'woo-catalog-bridge') . '</th></tr></thead><tbody>';
+        if (!$jobs) {
+            echo '<tr><td colspan="7">' . esc_html__('No jobs have been queued yet.', 'woo-catalog-bridge') . '</td></tr>';
+        }
+        foreach ($jobs as $job) {
+            echo '<tr><td>#' . esc_html($job['id']) . '</td><td>' . esc_html($job['job_type']) . '</td><td><span class="wcb-status wcb-status-' . esc_attr(strtolower($job['status'])) . '">' . esc_html($job['status']) . '</span></td><td>' . esc_html((int) $job['processed_items'] . '/' . (int) $job['total_items']) . '</td><td>' . esc_html((int) $job['attempts'] . '/' . (int) $job['max_attempts']) . '</td><td>' . esc_html($job['last_error']) . '</td><td>';
+            if (in_array($job['status'], array(WCB_Queue::STATUS_PENDING, WCB_Queue::STATUS_RUNNING, WCB_Queue::STATUS_FAILED), true)) {
+                echo '<button class="button wcb-ajax-action" data-task="resume_job" data-job-id="' . esc_attr($job['id']) . '">' . esc_html__('Resume', 'woo-catalog-bridge') . '</button> ';
+            }
+            if (in_array($job['status'], array(WCB_Queue::STATUS_PENDING, WCB_Queue::STATUS_RUNNING), true)) {
+                echo '<button class="button wcb-ajax-action" data-task="cancel_job" data-job-id="' . esc_attr($job['id']) . '">' . esc_html__('Cancel', 'woo-catalog-bridge') . '</button>';
+            }
+            echo '</td></tr>';
+        }
+        echo '</tbody></table></div>';
     }
 
     public function categories() {

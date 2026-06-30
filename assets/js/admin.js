@@ -46,7 +46,8 @@
         $.post(WCBAdmin.ajaxUrl, {
             action: 'wcb_run_action',
             nonce: WCBAdmin.nonce,
-            task: $button.data('task')
+            task: $button.data('task'),
+            job_id: $button.data('job-id') || 0
         }).done(function (response) {
             if (!response.success) {
                 showNotice((response.data && response.data.message) || WCBAdmin.i18n.failed, 'error');
@@ -59,7 +60,7 @@
             if (response.data.progress) {
                 updateProgress($panel, response.data.progress);
             }
-            if ($button.hasClass('wcb-sitemap-action') && !response.data.complete && response.data.status !== 'failed') {
+            if ($button.hasClass('wcb-sitemap-action') && !response.data.background && !response.data.complete && response.data.status && response.data.status !== 'failed') {
                 window.setTimeout(function () {
                     runAction($button, originalText);
                 }, 250);

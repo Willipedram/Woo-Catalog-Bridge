@@ -102,6 +102,21 @@ class WCB_Sitemap_Scanner {
         return $wpdb->get_row("SELECT * FROM " . WCB_Repository::table('sitemap_scans') . " ORDER BY id DESC LIMIT 1", ARRAY_A);
     }
 
+    public static function resume_scan($scan_id) {
+        $scan = self::get_scan((int) $scan_id);
+        if (!$scan || self::STATUS_COMPLETED === $scan['status']) {
+            return false;
+        }
+        if (self::STATUS_FAILED === $scan['status']) {
+            self::update_scan($scan_id, array(
+                'status' => self::STATUS_RUNNING,
+                'last_error' => null,
+                'updated_at' => current_time('mysql'),
+            ));
+        }
+        return true;
+    }
+
     private static function get_scan($scan_id) {
         global $wpdb;
         return $wpdb->get_row($wpdb->prepare("SELECT * FROM " . WCB_Repository::table('sitemap_scans') . " WHERE id = %d", $scan_id), ARRAY_A);
