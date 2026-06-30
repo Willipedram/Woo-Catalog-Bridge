@@ -47,7 +47,8 @@
             action: 'wcb_run_action',
             nonce: WCBAdmin.nonce,
             task: $button.data('task'),
-            job_id: $button.data('job-id') || 0
+            job_id: $button.data('job-id') || 0,
+            product_url: $panel.find('[data-wcb-product-url]').val() || ''
         }).done(function (response) {
             if (!response.success) {
                 showNotice((response.data && response.data.message) || WCBAdmin.i18n.failed, 'error');

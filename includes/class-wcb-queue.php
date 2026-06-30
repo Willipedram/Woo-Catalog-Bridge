@@ -81,6 +81,8 @@ class WCB_Queue {
                     self::process_sitemap_scan($job_id, $job, $payload);
                     break;
                 case 'scrape_product':
+                    self::process_product_import($job_id, $job, $payload);
+                    break;
                 case 'sync_products':
                     self::complete_placeholder_job($job_id, $job['job_type']);
                     break;
@@ -132,11 +134,27 @@ class WCB_Queue {
         WCB_Repository::complete_import_job($job_id);
     }
 
+    private static function process_product_import($job_id, $job, $payload) {
+        $url = isset($payload['product_url']) ? esc_url_raw($payload['product_url']) : '';
+        if (!$url) {
+            throw new InvalidArgumentException(__('Product URL is required for import.', 'woo-catalog-bridge'));
+        }
+        $result = WCB_Product_Importer::import($url);
+        WCB_Repository::update_import_job($job_id, array(
+            'total_items' => 1,
+            'processed_items' => 1,
+            'payload' => wp_json_encode(array_merge($payload, array('product_id' => $result['product_id']))),
+            'updated_at' => current_time('mysql'),
+        ));
+        WCB_Repository::complete_import_job($job_id);
+    }
+
     private static function handle_failure($job_id, $job, $payload, Exception $e) {
         $attempts = isset($job['attempts']) ? (int) $job['attempts'] + 1 : 1;
         $max_attempts = isset($job['max_attempts']) ? (int) $job['max_attempts'] : 3;
         $data = array(
             'attempts' => $attempts,
+            'failed_items' => 1,
             'last_error' => $e->getMessage(),
             'updated_at' => current_time('mysql'),
         );

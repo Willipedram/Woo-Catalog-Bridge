@@ -18,6 +18,8 @@ class WCB_Repository {
             id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
             source_url text NOT NULL,
             title varchar(255) DEFAULT '',
+            sku varchar(191) DEFAULT '',
+            source_hash varchar(64) DEFAULT '',
             category varchar(190) DEFAULT '',
             status varchar(30) DEFAULT 'discovered',
             woo_product_id bigint(20) unsigned DEFAULT 0,
@@ -26,7 +28,9 @@ class WCB_Repository {
             updated_at datetime NOT NULL,
             PRIMARY KEY  (id),
             KEY status (status),
-            KEY category (category)
+            KEY category (category),
+            KEY sku (sku),
+            KEY source_hash (source_hash)
         ) $charset;");
 
         dbDelta("CREATE TABLE " . self::table('logs') . " (
@@ -171,6 +175,31 @@ class WCB_Repository {
             'finished_at' => current_time('mysql'),
             'updated_at' => current_time('mysql'),
         ));
+    }
+
+    public static function record_product_import($data, $status, $woo_product_id = 0, $last_error = '') {
+        global $wpdb;
+        $now = current_time('mysql');
+        $source_url = isset($data['source_url']) ? esc_url_raw($data['source_url']) : '';
+        $existing_id = $source_url ? (int) $wpdb->get_var($wpdb->prepare("SELECT id FROM " . self::table('products') . " WHERE source_hash = %s LIMIT 1", md5($source_url))) : 0;
+        $row = array(
+            'source_url' => $source_url,
+            'source_hash' => $source_url ? md5($source_url) : '',
+            'title' => isset($data['title']) ? sanitize_text_field($data['title']) : '',
+            'sku' => isset($data['sku']) ? sanitize_text_field($data['sku']) : '',
+            'category' => isset($data['brand']) ? sanitize_text_field($data['brand']) : '',
+            'status' => sanitize_key($status),
+            'woo_product_id' => (int) $woo_product_id,
+            'last_error' => $last_error,
+            'updated_at' => $now,
+        );
+        if ($existing_id) {
+            $wpdb->update(self::table('products'), $row, array('id' => $existing_id));
+            return $existing_id;
+        }
+        $row['discovered_at'] = $now;
+        $wpdb->insert(self::table('products'), $row);
+        return (int) $wpdb->insert_id;
     }
 
     public static function list_import_jobs($number = 10, $offset = 0) {

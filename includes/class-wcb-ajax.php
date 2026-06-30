@@ -33,7 +33,11 @@ class WCB_Ajax {
                 ));
                 break;
             case 'scrape_product':
-                $job_id = WCB_Queue::enqueue('scrape_product');
+                $product_url = isset($_POST['product_url']) ? esc_url_raw(wp_unslash($_POST['product_url'])) : '';
+                if (!$product_url) {
+                    wp_send_json_error(array('message' => __('Product URL is required.', 'woo-catalog-bridge')), 400);
+                }
+                $job_id = WCB_Queue::enqueue('scrape_product', array('product_url' => $product_url));
                 $message = sprintf(__('Product scraping job #%d was queued.', 'woo-catalog-bridge'), $job_id);
                 break;
             case 'sync_products':

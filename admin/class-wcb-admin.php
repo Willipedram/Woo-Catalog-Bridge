@@ -55,7 +55,15 @@ class WCB_Admin {
         $this->render_jobs_panel();
         $this->footer();
     }
-    public function scrape() { $this->action_page(__('Product Scrape', 'woo-catalog-bridge'), 'scrape_product', __('Scrape queued product pages and normalize product data.', 'woo-catalog-bridge')); }
+    public function scrape() {
+        $this->header(__('Product Import', 'woo-catalog-bridge'));
+        echo '<div class="wcb-panel"><p>' . esc_html__('Enter a Sazkala product URL. The queued importer extracts product data, stores images in the Media Library, creates a WooCommerce product, and stops if a duplicate is found by SKU, source URL, or product name.', 'woo-catalog-bridge') . '</p>';
+        echo '<p><label for="wcb-product-url"><strong>' . esc_html__('Product URL', 'woo-catalog-bridge') . '</strong></label></p>';
+        echo '<input id="wcb-product-url" data-wcb-product-url type="url" class="large-text" placeholder="https://sazkala.com/product/..." />';
+        echo '<p><button class="button button-primary wcb-ajax-action" data-task="scrape_product">' . esc_html__('Queue Product Import', 'woo-catalog-bridge') . '</button><span class="spinner"></span></p></div>';
+        $this->render_jobs_panel();
+        $this->footer();
+    }
     public function sync() { $this->action_page(__('Synchronization', 'woo-catalog-bridge'), 'sync_products', __('Import or update scraped products in WooCommerce.', 'woo-catalog-bridge')); }
 
     private function action_page($title, $task, $description) {
