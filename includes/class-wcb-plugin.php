@@ -18,15 +18,32 @@ final class WCB_Plugin {
         add_action('admin_menu', array($this, 'admin_menu'));
         add_action('admin_enqueue_scripts', array($this, 'admin_assets'));
         add_action('wp_ajax_wcb_dashboard_stats', array('WCB_Ajax', 'dashboard_stats'));
+        add_action('wp_ajax_wcb_monitor', array('WCB_Ajax', 'monitor'));
         add_action('wp_ajax_wcb_run_action', array('WCB_Ajax', 'run_action'));
+        add_action(WCB_Queue::HOOK, array('WCB_Queue', 'process'), 10, 1);
+        foreach (array_keys(WCB_Scheduler::operations()) as $operation) {
+            add_action(WCB_Scheduler::hook($operation), array('WCB_Scheduler', 'run_operation'), 10, 1);
+        }
         add_filter('cron_schedules', array($this, 'cron_schedules'));
     }
 
     private function includes() {
         require_once WCB_PATH . 'includes/class-wcb-repository.php';
+        require_once WCB_PATH . 'includes/class-wcb-sitemap-scanner.php';
+        require_once WCB_PATH . 'includes/class-wcb-content-cleaner.php';
+        require_once WCB_PATH . 'includes/class-wcb-product-importer.php';
+        require_once WCB_PATH . 'includes/class-wcb-batch-importer.php';
+        require_once WCB_PATH . 'includes/class-wcb-comparison-engine.php';
+        require_once WCB_PATH . 'includes/class-wcb-price-sync-engine.php';
+        require_once WCB_PATH . 'includes/class-wcb-stock-sync-engine.php';
+        require_once WCB_PATH . 'includes/class-wcb-scheduler.php';
+        require_once WCB_PATH . 'includes/class-wcb-monitor.php';
+        require_once WCB_PATH . 'includes/class-wcb-queue.php';
         require_once WCB_PATH . 'includes/class-wcb-ajax.php';
-        require_once WCB_PATH . 'admin/class-wcb-admin.php';
-        require_once WCB_PATH . 'admin/class-wcb-list-tables.php';
+        if (is_admin()) {
+            require_once WCB_PATH . 'admin/class-wcb-admin.php';
+            require_once WCB_PATH . 'admin/class-wcb-list-tables.php';
+        }
     }
 
     public static function activate() {
@@ -35,6 +52,8 @@ final class WCB_Plugin {
         if (!wp_next_scheduled('wcb_scheduled_sync')) {
             wp_schedule_event(time() + HOUR_IN_SECONDS, 'hourly', 'wcb_scheduled_sync');
         }
+        require_once WCB_PATH . 'includes/class-wcb-scheduler.php';
+        WCB_Scheduler::reschedule_all();
     }
 
     public static function deactivate() {
@@ -42,17 +61,20 @@ final class WCB_Plugin {
         if ($timestamp) {
             wp_unschedule_event($timestamp, 'wcb_scheduled_sync');
         }
+        require_once WCB_PATH . 'includes/class-wcb-scheduler.php';
+        foreach (array_keys(WCB_Scheduler::operations()) as $operation) {
+            WCB_Scheduler::clear($operation);
+        }
     }
 
     public function cron_schedules($schedules) {
-        $schedules['wcb_15_minutes'] = array(
-            'interval' => 15 * MINUTE_IN_SECONDS,
-            'display'  => __('Every 15 minutes', 'woo-catalog-bridge'),
-        );
-        return $schedules;
+        return WCB_Scheduler::cron_schedules($schedules);
     }
 
     public function admin_menu() {
+        if (!class_exists('WCB_Admin')) {
+            require_once WCB_PATH . 'admin/class-wcb-admin.php';
+        }
         $admin = new WCB_Admin();
         $admin->register_menu();
     }
