@@ -40,8 +40,42 @@ class WCB_Repository {
             KEY created_at (created_at)
         ) $charset;");
 
+        dbDelta("CREATE TABLE " . self::table('sitemap_scans') . " (
+            id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+            sitemap_index_url text NOT NULL,
+            status varchar(30) NOT NULL DEFAULT 'running',
+            total_sitemaps int(11) unsigned NOT NULL DEFAULT 0,
+            processed_sitemaps int(11) unsigned NOT NULL DEFAULT 0,
+            total_items int(11) unsigned NOT NULL DEFAULT 0,
+            processed_items int(11) unsigned NOT NULL DEFAULT 0,
+            progress longtext NULL,
+            last_error text NULL,
+            started_at datetime NULL,
+            finished_at datetime NULL,
+            created_at datetime NOT NULL,
+            updated_at datetime NOT NULL,
+            PRIMARY KEY  (id),
+            KEY status (status),
+            KEY started_at (started_at)
+        ) $charset;");
+
+        dbDelta("CREATE TABLE " . self::table('sitemap_items') . " (
+            id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+            name varchar(255) NOT NULL DEFAULT '',
+            url varchar(700) NOT NULL,
+            type varchar(30) NOT NULL,
+            discovered_at datetime NOT NULL,
+            status varchar(30) NOT NULL DEFAULT 'discovered',
+            updated_at datetime NOT NULL,
+            PRIMARY KEY  (id),
+            UNIQUE KEY url_type (url(191), type),
+            KEY type (type),
+            KEY status (status),
+            KEY discovered_at (discovered_at)
+        ) $charset;");
+
         add_option('wcb_settings', array(
-            'sitemap_url' => home_url('/sitemap.xml'),
+            'sitemap_url' => 'https://sazkala.com/sitemap_index.xml',
             'sync_batch_size' => 20,
             'schedule_enabled' => 0,
             'schedule_interval' => 'hourly',
@@ -54,6 +88,9 @@ class WCB_Repository {
         $logs = self::table('logs');
         return array(
             'discovered' => (int) $wpdb->get_var("SELECT COUNT(*) FROM $products"),
+            'sitemap_items' => (int) $wpdb->get_var("SELECT COUNT(*) FROM " . self::table('sitemap_items')),
+            'sitemap_products' => (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM " . self::table('sitemap_items') . " WHERE type = %s", 'product')),
+            'sitemap_categories' => (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM " . self::table('sitemap_items') . " WHERE type = %s", 'category')),
             'imported' => (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM $products WHERE status = %s", 'imported')),
             'errors' => (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM $logs WHERE level = %s", 'error')),
             'active' => (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM $products WHERE status IN (%s,%s,%s)", 'queued', 'scraping', 'syncing')),

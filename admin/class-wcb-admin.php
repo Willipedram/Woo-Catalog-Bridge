@@ -37,11 +37,23 @@ class WCB_Admin {
         foreach ($cards as $key => $label) {
             echo '<div class="wcb-card"><span class="wcb-card-label">' . esc_html($label) . '</span><strong data-stat="' . esc_attr($key) . '">' . esc_html($stats[$key]) . '</strong></div>';
         }
-        echo '</div><div class="wcb-panel"><h2>' . esc_html__('Quick actions', 'woo-catalog-bridge') . '</h2><button class="button button-primary wcb-ajax-action" data-task="scan_sitemap">' . esc_html__('Scan Sitemap', 'woo-catalog-bridge') . '</button> <button class="button wcb-ajax-action" data-task="scrape_product">' . esc_html__('Start Scraping', 'woo-catalog-bridge') . '</button> <button class="button wcb-ajax-action" data-task="sync_products">' . esc_html__('Run Sync', 'woo-catalog-bridge') . '</button></div>';
+        echo '</div><div class="wcb-panel"><h2>' . esc_html__('Quick actions', 'woo-catalog-bridge') . '</h2><button class="button button-primary wcb-ajax-action wcb-sitemap-action" data-task="scan_sitemap">' . esc_html__('Scan Sitemap', 'woo-catalog-bridge') . '</button> <button class="button wcb-ajax-action" data-task="scrape_product">' . esc_html__('Start Scraping', 'woo-catalog-bridge') . '</button> <button class="button wcb-ajax-action" data-task="sync_products">' . esc_html__('Run Sync', 'woo-catalog-bridge') . '</button><div class="wcb-progress" data-progress-wrap style="display:none"><div class="wcb-progress-bar"><span data-progress-bar></span></div><p data-progress-text></p></div></div>';
         $this->footer();
     }
 
-    public function sitemap() { $this->action_page(__('Sitemap Scan', 'woo-catalog-bridge'), 'scan_sitemap', __('Scan the configured sitemap and queue discovered product URLs.', 'woo-catalog-bridge')); }
+    public function sitemap() {
+        $this->header(__('Sitemap Scan', 'woo-catalog-bridge'));
+        $scan = WCB_Sitemap_Scanner::get_latest_scan();
+        echo '<div class="wcb-panel"><p>' . esc_html__('Reads the source sitemap index, extracts product and category sitemaps, and stores discovered URLs in dedicated tables. Processing runs in resumable batches so large sites do not require loading all URLs into memory.', 'woo-catalog-bridge') . '</p>';
+        echo '<p><strong>' . esc_html__('Source:', 'woo-catalog-bridge') . '</strong> ' . esc_html(WCB_Sitemap_Scanner::DEFAULT_SITEMAP_URL) . '</p>';
+        if ($scan) {
+            echo '<p><strong>' . esc_html__('Last scan:', 'woo-catalog-bridge') . '</strong> ' . esc_html($scan['status']) . ' — ' . esc_html((int) $scan['processed_sitemaps'] . '/' . (int) $scan['total_sitemaps']) . ' ' . esc_html__('sitemaps processed', 'woo-catalog-bridge') . '</p>';
+        }
+        echo '<button class="button button-primary wcb-ajax-action wcb-sitemap-action" data-task="scan_sitemap">' . esc_html__('Run / Resume Scan', 'woo-catalog-bridge') . '</button><span class="spinner"></span><div class="wcb-progress" data-progress-wrap style="display:none"><div class="wcb-progress-bar"><span data-progress-bar></span></div><p data-progress-text></p></div></div>';
+        $stats = WCB_Repository::stats();
+        echo '<div class="wcb-grid wcb-stats"><div class="wcb-card"><span class="wcb-card-label">' . esc_html__('Sitemap Items', 'woo-catalog-bridge') . '</span><strong data-stat="sitemap_items">' . esc_html($stats['sitemap_items']) . '</strong></div><div class="wcb-card"><span class="wcb-card-label">' . esc_html__('Product URLs', 'woo-catalog-bridge') . '</span><strong data-stat="sitemap_products">' . esc_html($stats['sitemap_products']) . '</strong></div><div class="wcb-card"><span class="wcb-card-label">' . esc_html__('Category URLs', 'woo-catalog-bridge') . '</span><strong data-stat="sitemap_categories">' . esc_html($stats['sitemap_categories']) . '</strong></div></div>';
+        $this->footer();
+    }
     public function scrape() { $this->action_page(__('Product Scrape', 'woo-catalog-bridge'), 'scrape_product', __('Scrape queued product pages and normalize product data.', 'woo-catalog-bridge')); }
     public function sync() { $this->action_page(__('Synchronization', 'woo-catalog-bridge'), 'sync_products', __('Import or update scraped products in WooCommerce.', 'woo-catalog-bridge')); }
 

@@ -21,8 +21,8 @@ class WCB_Ajax {
         $task = isset($_POST['task']) ? sanitize_key(wp_unslash($_POST['task'])) : '';
         switch ($task) {
             case 'scan_sitemap':
-                WCB_Repository::seed_discovered_products(5);
-                $message = __('Sitemap scan completed and sample products were queued.', 'woo-catalog-bridge');
+                $scan_id = WCB_Sitemap_Scanner::start(WCB_Sitemap_Scanner::DEFAULT_SITEMAP_URL);
+                wp_send_json_success(WCB_Sitemap_Scanner::run_batch($scan_id, 2));
                 break;
             case 'scrape_product':
                 WCB_Repository::log('info', __('Product scraping job started.', 'woo-catalog-bridge'));
