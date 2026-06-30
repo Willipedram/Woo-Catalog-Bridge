@@ -54,3 +54,58 @@ class WCB_Logs_List_Table extends WP_List_Table {
         $this->set_pagination_args(array('total_items' => WCB_Repository::count_logs(), 'per_page' => $per_page));
     }
 }
+
+class WCB_Comparisons_List_Table extends WP_List_Table {
+    public function get_columns() {
+        return array(
+            'name' => __('Name', 'woo-catalog-bridge'),
+            'sku' => __('SKU', 'woo-catalog-bridge'),
+            'source_price' => __('Source Price', 'woo-catalog-bridge'),
+            'destination_price' => __('Destination Price', 'woo-catalog-bridge'),
+            'source_stock' => __('Source Stock', 'woo-catalog-bridge'),
+            'destination_stock' => __('Destination Stock', 'woo-catalog-bridge'),
+            'status' => __('Status', 'woo-catalog-bridge'),
+        );
+    }
+
+    protected function get_sortable_columns() {
+        return array(
+            'name' => array('name', false),
+            'sku' => array('sku', false),
+            'source_price' => array('source_price', false),
+            'destination_price' => array('destination_price', false),
+            'source_stock' => array('source_stock', false),
+            'destination_stock' => array('destination_stock', false),
+            'status' => array('status', false),
+        );
+    }
+
+    protected function column_default($item, $column_name) {
+        return esc_html(isset($item[$column_name]) ? $item[$column_name] : '');
+    }
+
+    protected function column_name($item) {
+        $name = '<strong>' . esc_html($item['name'] ? $item['name'] : __('Untitled product', 'woo-catalog-bridge')) . '</strong>';
+        if (!empty($item['source_url'])) {
+            $name .= '<div class="row-actions"><span><a href="' . esc_url($item['source_url']) . '" target="_blank" rel="noopener noreferrer">' . esc_html__('Source', 'woo-catalog-bridge') . '</a></span></div>';
+        }
+        return $name;
+    }
+
+    protected function column_status($item) {
+        return '<span class="wcb-status wcb-status-' . esc_attr(sanitize_title($item['status'])) . '">' . esc_html($item['status']) . '</span>';
+    }
+
+    public function prepare_items() {
+        $per_page = 20;
+        $page = $this->get_pagenum();
+        $search = isset($_REQUEST['s']) ? sanitize_text_field(wp_unslash($_REQUEST['s'])) : '';
+        $status = isset($_REQUEST['comparison_status']) ? sanitize_text_field(wp_unslash($_REQUEST['comparison_status'])) : '';
+        $orderby = isset($_REQUEST['orderby']) ? sanitize_key(wp_unslash($_REQUEST['orderby'])) : 'compared_at';
+        $order = isset($_REQUEST['order']) ? sanitize_key(wp_unslash($_REQUEST['order'])) : 'DESC';
+        $args = array('number' => $per_page, 'offset' => ($page - 1) * $per_page, 'search' => $search, 'status' => $status, 'orderby' => $orderby, 'order' => $order);
+        $this->items = WCB_Repository::list_comparisons($args);
+        $this->_column_headers = array($this->get_columns(), array(), $this->get_sortable_columns());
+        $this->set_pagination_args(array('total_items' => WCB_Repository::count_comparisons($args), 'per_page' => $per_page));
+    }
+}
