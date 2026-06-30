@@ -132,12 +132,13 @@ class WCB_Product_Importer {
             'featured_image' => isset($images[0]) ? $images[0] : '',
             'gallery_images' => array_slice($images, 1),
             'attributes' => $attributes,
+            'variations' => self::extract_variations($xpath, $source_url),
             'brand' => sanitize_text_field($brand),
         );
     }
 
     private static function create_woocommerce_product($data) {
-        $product = new WC_Product_Simple();
+        $product = !empty($data['variations']) && class_exists('WC_Product_Variable') ? new WC_Product_Variable() : new WC_Product_Simple();
         $product->set_name($data['title']);
         $product->set_description($data['description']);
         $product->set_short_description($data['short_description']);
@@ -160,7 +161,8 @@ class WCB_Product_Importer {
         if ($data['brand']) {
             $product->update_meta_data(self::BRAND_META, $data['brand']);
         }
-        $product->set_attributes(self::build_wc_attributes($data['attributes']));
+        $attribute_context = self::build_wc_attributes($data['attributes'], isset($data['variations']) ? $data['variations'] : array());
+        $product->set_attributes($attribute_context['attributes']);
         $product_id = $product->save();
 
         $featured_id = $data['featured_image'] ? self::sideload_image($data['featured_image'], $product_id) : 0;
@@ -178,6 +180,11 @@ class WCB_Product_Importer {
             update_post_meta($product_id, '_product_image_gallery', implode(',', array_unique($gallery_ids)));
         }
 
+        if ($product instanceof WC_Product_Variable) {
+            self::create_variations($product_id, $data['variations'], $attribute_context['map']);
+            WC_Product_Variable::sync($product_id);
+        }
+
         return (int) $product_id;
     }
 
@@ -192,20 +199,35 @@ class WCB_Product_Importer {
         return is_wp_error($attachment_id) ? 0 : (int) $attachment_id;
     }
 
-    private static function build_wc_attributes($attributes) {
+    private static function build_wc_attributes($attributes, $variations = array()) {
+        $attributes = self::merge_variation_attributes($attributes, $variations);
         $wc_attributes = array();
+        $map = array();
         foreach ($attributes as $name => $value) {
-            if ('' === trim((string) $value)) {
+            $options = is_array($value) ? array_filter(array_map('wc_clean', $value)) : array(wc_clean($value));
+            if (!$options) {
                 continue;
             }
+            $taxonomy = self::ensure_global_attribute($name);
+            $term_ids = array();
+            $term_slugs = array();
+            foreach ($options as $option) {
+                $term = self::ensure_attribute_term($taxonomy, $option);
+                if ($term) {
+                    $term_ids[] = (int) $term['term_id'];
+                    $term_slugs[$option] = $term['slug'];
+                }
+            }
             $attribute = new WC_Product_Attribute();
-            $attribute->set_name(wc_clean($name));
-            $attribute->set_options(array(wc_clean($value)));
+            $attribute->set_id(wc_attribute_taxonomy_id_by_name($taxonomy));
+            $attribute->set_name($taxonomy);
+            $attribute->set_options($term_ids);
             $attribute->set_visible(true);
-            $attribute->set_variation(false);
+            $attribute->set_variation(self::is_variation_attribute($name, $variations));
             $wc_attributes[] = $attribute;
+            $map[sanitize_title($name)] = array('taxonomy' => $taxonomy, 'terms' => $term_slugs);
         }
-        return $wc_attributes;
+        return array('attributes' => $wc_attributes, 'map' => $map);
     }
 
     private static function extract_json_ld_product($xpath) {
@@ -251,6 +273,185 @@ class WCB_Product_Importer {
         return array_values(array_unique(array_filter(array_map(function ($image) use ($source_url) {
             return esc_url_raw(wp_http_validate_url($image) ? $image : self::absolute_url($image, $source_url));
         }, $images))));
+    }
+
+    private static function extract_variations($xpath, $source_url) {
+        $variations = array();
+        foreach ($xpath->query('//*[@data-product_variations]') as $node) {
+            $json = html_entity_decode($node->getAttribute('data-product_variations'), ENT_QUOTES, 'UTF-8');
+            $decoded = json_decode($json, true);
+            if (is_array($decoded)) {
+                foreach ($decoded as $variation) {
+                    $normalized = self::normalize_variation($variation, $source_url);
+                    if ($normalized) {
+                        $variations[] = $normalized;
+                    }
+                }
+            }
+        }
+        foreach ($xpath->query('//script[contains(text(), "variation_id") and contains(text(), "attributes")]') as $script) {
+            if (preg_match_all('/\\[\\{.*?\\}\\]/s', $script->textContent, $matches)) {
+                foreach ($matches[0] as $json) {
+                    $decoded = json_decode($json, true);
+                    if (!is_array($decoded)) {
+                        continue;
+                    }
+                    foreach ($decoded as $variation) {
+                        $normalized = self::normalize_variation($variation, $source_url);
+                        if ($normalized) {
+                            $variations[] = $normalized;
+                        }
+                    }
+                }
+            }
+        }
+        return self::unique_variations($variations);
+    }
+
+    private static function normalize_variation($variation, $source_url) {
+        if (!is_array($variation)) {
+            return array();
+        }
+        $attributes = array();
+        $raw_attributes = isset($variation['attributes']) && is_array($variation['attributes']) ? $variation['attributes'] : array();
+        foreach ($raw_attributes as $name => $value) {
+            $clean_name = preg_replace('/^attribute_/', '', (string) $name);
+            $clean_name = preg_replace('/^pa_/', '', $clean_name);
+            if ('' !== trim((string) $value)) {
+                $attributes[sanitize_text_field(str_replace('-', ' ', $clean_name))] = sanitize_text_field($value);
+            }
+        }
+        if (!$attributes) {
+            return array();
+        }
+        $image = '';
+        if (!empty($variation['image']['url'])) {
+            $image = $variation['image']['url'];
+        } elseif (!empty($variation['image']['src'])) {
+            $image = $variation['image']['src'];
+        }
+        if ($image && !wp_http_validate_url($image)) {
+            $image = self::absolute_url($image, $source_url);
+        }
+        return array(
+            'attributes' => $attributes,
+            'sku' => isset($variation['sku']) ? sanitize_text_field($variation['sku']) : '',
+            'price' => self::normalize_price(isset($variation['display_price']) ? $variation['display_price'] : (isset($variation['price']) ? $variation['price'] : '')),
+            'regular_price' => self::normalize_price(isset($variation['display_regular_price']) ? $variation['display_regular_price'] : (isset($variation['regular_price']) ? $variation['regular_price'] : '')),
+            'stock_status' => !empty($variation['is_in_stock']) ? 'instock' : 'outofstock',
+            'stock_quantity' => isset($variation['max_qty']) && '' !== $variation['max_qty'] ? (int) $variation['max_qty'] : null,
+            'image' => esc_url_raw($image),
+        );
+    }
+
+    private static function unique_variations($variations) {
+        $seen = array();
+        $unique = array();
+        foreach ($variations as $variation) {
+            $key = md5(wp_json_encode($variation['attributes']));
+            if (isset($seen[$key])) {
+                continue;
+            }
+            $seen[$key] = true;
+            $unique[] = $variation;
+        }
+        return $unique;
+    }
+
+    private static function merge_variation_attributes($attributes, $variations) {
+        foreach ($variations as $variation) {
+            foreach ($variation['attributes'] as $name => $value) {
+                if (!isset($attributes[$name])) {
+                    $attributes[$name] = array();
+                }
+                if (!is_array($attributes[$name])) {
+                    $attributes[$name] = array($attributes[$name]);
+                }
+                $attributes[$name][] = $value;
+                $attributes[$name] = array_values(array_unique(array_filter($attributes[$name])));
+            }
+        }
+        return $attributes;
+    }
+
+    private static function is_variation_attribute($name, $variations) {
+        foreach ($variations as $variation) {
+            if (array_key_exists($name, $variation['attributes'])) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static function create_variations($product_id, $variations, $attribute_map) {
+        foreach ($variations as $variation_data) {
+            $variation = new WC_Product_Variation();
+            $variation->set_parent_id($product_id);
+            $variation->set_attributes(self::variation_attribute_values($variation_data['attributes'], $attribute_map));
+            if (!empty($variation_data['sku']) && !wc_get_product_id_by_sku($variation_data['sku'])) {
+                $variation->set_sku($variation_data['sku']);
+            }
+            $price = $variation_data['price'] ? $variation_data['price'] : $variation_data['regular_price'];
+            if ('' !== $price) {
+                $variation->set_regular_price((string) $price);
+            }
+            $variation->set_stock_status($variation_data['stock_status']);
+            if (null !== $variation_data['stock_quantity']) {
+                $variation->set_manage_stock(true);
+                $variation->set_stock_quantity((int) $variation_data['stock_quantity']);
+            }
+            $variation_id = $variation->save();
+            if (!empty($variation_data['image'])) {
+                $image_id = self::sideload_image($variation_data['image'], $variation_id);
+                if ($image_id) {
+                    $variation->set_image_id($image_id);
+                    $variation->save();
+                }
+            }
+        }
+    }
+
+    private static function variation_attribute_values($attributes, $attribute_map) {
+        $values = array();
+        foreach ($attributes as $name => $value) {
+            $key = sanitize_title($name);
+            if (isset($attribute_map[$key])) {
+                $taxonomy = $attribute_map[$key]['taxonomy'];
+                $values[$taxonomy] = isset($attribute_map[$key]['terms'][$value]) ? $attribute_map[$key]['terms'][$value] : sanitize_title($value);
+            }
+        }
+        return $values;
+    }
+
+    private static function ensure_global_attribute($name) {
+        $taxonomy = wc_attribute_taxonomy_name($name);
+        if (!wc_attribute_taxonomy_id_by_name($taxonomy) && function_exists('wc_create_attribute')) {
+            wc_create_attribute(array(
+                'name' => wc_clean($name),
+                'slug' => str_replace('pa_', '', $taxonomy),
+                'type' => 'select',
+                'order_by' => 'menu_order',
+                'has_archives' => false,
+            ));
+            delete_transient('wc_attribute_taxonomies');
+        }
+        if (!taxonomy_exists($taxonomy)) {
+            register_taxonomy($taxonomy, array('product'), array('hierarchical' => false, 'show_ui' => false, 'query_var' => true, 'rewrite' => false));
+        }
+        return $taxonomy;
+    }
+
+    private static function ensure_attribute_term($taxonomy, $value) {
+        $term = get_term_by('name', $value, $taxonomy);
+        if (!$term) {
+            $inserted = wp_insert_term($value, $taxonomy);
+            if (is_wp_error($inserted)) {
+                $term = get_term_by('slug', sanitize_title($value), $taxonomy);
+            } else {
+                $term = get_term((int) $inserted['term_id'], $taxonomy);
+            }
+        }
+        return $term ? array('term_id' => (int) $term->term_id, 'slug' => $term->slug) : null;
     }
 
     private static function extract_dimensions($attributes) {
