@@ -43,12 +43,15 @@
 
     function runAction($button, originalText) {
         var $panel = $button.closest('.wcb-panel');
+        var categoryIds = $panel.find('[data-wcb-category-ids]').val() || [];
         $.post(WCBAdmin.ajaxUrl, {
             action: 'wcb_run_action',
             nonce: WCBAdmin.nonce,
             task: $button.data('task'),
             job_id: $button.data('job-id') || 0,
             product_url: $panel.find('[data-wcb-product-url]').val() || '',
+            batch_mode: $panel.find('[data-wcb-batch-mode]:checked').val() || 'all',
+            category_ids: categoryIds,
             content_cleaner_replacement: $panel.find('[data-wcb-setting="content_cleaner_replacement"]').val() || '',
             content_cleaner_rules: $panel.find('[data-wcb-setting="content_cleaner_rules"]').val() || ''
         }).done(function (response) {

@@ -59,6 +59,14 @@ class WCB_Product_Importer {
         return 0;
     }
 
+    public static function source_url_exists($source_url) {
+        $source_url = esc_url_raw($source_url);
+        if (!$source_url) {
+            return false;
+        }
+        return (bool) self::find_product_by_meta(self::SOURCE_URL_META, $source_url) || WCB_Repository::source_url_record_exists($source_url);
+    }
+
     private static function fetch_html($url) {
         $response = wp_remote_get($url, array(
             'timeout' => 30,

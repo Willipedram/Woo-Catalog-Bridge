@@ -209,6 +209,22 @@ class WCB_Repository {
         return (int) $wpdb->insert_id;
     }
 
+    public static function source_url_record_exists($source_url) {
+        global $wpdb;
+        return (bool) $wpdb->get_var($wpdb->prepare("SELECT id FROM " . self::table('products') . " WHERE source_hash = %s AND status IN (%s,%s) LIMIT 1", md5(esc_url_raw($source_url)), 'imported', 'duplicate'));
+    }
+
+    public static function list_sitemap_categories($ids = array()) {
+        global $wpdb;
+        $table = self::table('sitemap_items');
+        $ids = array_values(array_filter(array_map('absint', (array) $ids)));
+        if ($ids) {
+            $placeholders = implode(',', array_fill(0, count($ids), '%d'));
+            return $wpdb->get_results($wpdb->prepare("SELECT id, name, url FROM $table WHERE type = %s AND id IN ($placeholders) ORDER BY name ASC", array_merge(array('category'), $ids)), ARRAY_A);
+        }
+        return $wpdb->get_results($wpdb->prepare("SELECT id, name, url FROM $table WHERE type = %s ORDER BY name ASC", 'category'), ARRAY_A);
+    }
+
     public static function list_import_jobs($number = 10, $offset = 0) {
         global $wpdb;
         return $wpdb->get_results($wpdb->prepare("SELECT * FROM " . self::table('import_jobs') . " ORDER BY created_at DESC LIMIT %d OFFSET %d", (int) $number, (int) $offset), ARRAY_A);

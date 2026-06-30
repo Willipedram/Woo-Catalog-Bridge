@@ -11,6 +11,7 @@ class WCB_Admin {
         $pages = array(
             array($this->slug, __('Dashboard', 'woo-catalog-bridge'), __('Dashboard', 'woo-catalog-bridge'), 'dashboard'),
             array('wcb-sitemap', __('Sitemap Scan', 'woo-catalog-bridge'), __('Sitemap Scan', 'woo-catalog-bridge'), 'sitemap'),
+            array('wcb-batch-import', __('Batch Import', 'woo-catalog-bridge'), __('Batch Import', 'woo-catalog-bridge'), 'batch_import'),
             array('wcb-products', __('Discovered Products', 'woo-catalog-bridge'), __('Discovered Products', 'woo-catalog-bridge'), 'products'),
             array('wcb-categories', __('Categories', 'woo-catalog-bridge'), __('Categories', 'woo-catalog-bridge'), 'categories'),
             array('wcb-scrape', __('Product Scrape', 'woo-catalog-bridge'), __('Product Scrape', 'woo-catalog-bridge'), 'scrape'),
@@ -61,6 +62,23 @@ class WCB_Admin {
         echo '<p><label for="wcb-product-url"><strong>' . esc_html__('Product URL', 'woo-catalog-bridge') . '</strong></label></p>';
         echo '<input id="wcb-product-url" data-wcb-product-url type="url" class="large-text" placeholder="https://sazkala.com/product/..." />';
         echo '<p><button class="button button-primary wcb-ajax-action" data-task="scrape_product">' . esc_html__('Queue Product Import', 'woo-catalog-bridge') . '</button><span class="spinner"></span></p></div>';
+        $this->render_jobs_panel();
+        $this->footer();
+    }
+    public function batch_import() {
+        $this->header(__('Batch Import', 'woo-catalog-bridge'));
+        $categories = WCB_Repository::list_sitemap_categories();
+        echo '<div class="wcb-panel"><p>' . esc_html__('Queue product imports from one category, multiple categories, or all discovered categories. Existing products are skipped by source URL before product jobs are queued; each discovered product is added as its own queue job for retry/resume handling.', 'woo-catalog-bridge') . '</p>';
+        echo '<fieldset><legend class="screen-reader-text">' . esc_html__('Batch mode', 'woo-catalog-bridge') . '</legend>';
+        echo '<label><input type="radio" name="wcb_batch_mode" value="one" data-wcb-batch-mode /> ' . esc_html__('One category', 'woo-catalog-bridge') . '</label><br />';
+        echo '<label><input type="radio" name="wcb_batch_mode" value="multiple" data-wcb-batch-mode /> ' . esc_html__('Multiple categories', 'woo-catalog-bridge') . '</label><br />';
+        echo '<label><input type="radio" name="wcb_batch_mode" value="all" data-wcb-batch-mode checked /> ' . esc_html__('All categories', 'woo-catalog-bridge') . '</label></fieldset>';
+        echo '<select data-wcb-category-ids multiple size="10" class="large-text">';
+        foreach ($categories as $category) {
+            echo '<option value="' . esc_attr($category['id']) . '">' . esc_html($category['name'] ? $category['name'] : $category['url']) . '</option>';
+        }
+        echo '</select><p class="description">' . esc_html__('Run Sitemap Scan first if no categories are listed.', 'woo-catalog-bridge') . '</p>';
+        echo '<p><button class="button button-primary wcb-ajax-action" data-task="batch_import">' . esc_html__('Queue Batch Import', 'woo-catalog-bridge') . '</button><span class="spinner"></span></p></div>';
         $this->render_jobs_panel();
         $this->footer();
     }

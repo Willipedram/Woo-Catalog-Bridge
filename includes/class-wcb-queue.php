@@ -83,6 +83,9 @@ class WCB_Queue {
                 case 'scrape_product':
                     self::process_product_import($job_id, $job, $payload);
                     break;
+                case 'batch_import':
+                    WCB_Batch_Importer::process($job_id, $payload);
+                    break;
                 case 'sync_products':
                     self::complete_placeholder_job($job_id, $job['job_type']);
                     break;

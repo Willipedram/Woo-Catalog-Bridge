@@ -40,6 +40,18 @@ class WCB_Ajax {
                 $job_id = WCB_Queue::enqueue('scrape_product', array('product_url' => $product_url));
                 $message = sprintf(__('Product scraping job #%d was queued.', 'woo-catalog-bridge'), $job_id);
                 break;
+            case 'batch_import':
+                $mode = isset($_POST['batch_mode']) ? sanitize_key(wp_unslash($_POST['batch_mode'])) : 'all';
+                $category_ids = isset($_POST['category_ids']) ? array_map('absint', (array) wp_unslash($_POST['category_ids'])) : array();
+                if (!in_array($mode, array('one', 'multiple', 'all'), true)) {
+                    wp_send_json_error(array('message' => __('Invalid batch mode.', 'woo-catalog-bridge')), 400);
+                }
+                if ('all' !== $mode && !$category_ids) {
+                    wp_send_json_error(array('message' => __('Select at least one category.', 'woo-catalog-bridge')), 400);
+                }
+                $job_id = WCB_Batch_Importer::start($mode, $category_ids);
+                $message = sprintf(__('Batch import job #%d was queued.', 'woo-catalog-bridge'), $job_id);
+                break;
             case 'sync_products':
                 $job_id = WCB_Queue::enqueue('sync_products');
                 $message = sprintf(__('Synchronization job #%d was queued.', 'woo-catalog-bridge'), $job_id);
