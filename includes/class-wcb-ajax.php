@@ -16,21 +16,103 @@ class WCB_Ajax {
         wp_send_json_success(WCB_Repository::stats());
     }
 
+    public static function monitor() {
+        self::guard();
+        wp_send_json_success(WCB_Monitor::snapshot());
+    }
+
     public static function run_action() {
         self::guard();
         $task = isset($_POST['task']) ? sanitize_key(wp_unslash($_POST['task'])) : '';
         switch ($task) {
             case 'scan_sitemap':
-                WCB_Repository::seed_discovered_products(5);
-                $message = __('Sitemap scan completed and sample products were queued.', 'woo-catalog-bridge');
+                $scan_id = WCB_Sitemap_Scanner::start(WCB_Sitemap_Scanner::DEFAULT_SITEMAP_URL);
+                $job_id = WCB_Queue::enqueue('scan_sitemap', array('scan_id' => $scan_id));
+                wp_send_json_success(array(
+                    'message' => __('Sitemap scan job was queued and will continue in the background.', 'woo-catalog-bridge'),
+                    'job_id' => $job_id,
+                    'scan_id' => $scan_id,
+                    'background' => true,
+                    'complete' => false,
+                    'stats' => WCB_Repository::stats(),
+                ));
                 break;
             case 'scrape_product':
-                WCB_Repository::log('info', __('Product scraping job started.', 'woo-catalog-bridge'));
-                $message = __('Product scraping job started.', 'woo-catalog-bridge');
+                $product_url = isset($_POST['product_url']) ? esc_url_raw(wp_unslash($_POST['product_url'])) : '';
+                if (!$product_url) {
+                    wp_send_json_error(array('message' => __('Product URL is required.', 'woo-catalog-bridge')), 400);
+                }
+                $job_id = WCB_Queue::enqueue('scrape_product', array('product_url' => $product_url));
+                $message = sprintf(__('Product scraping job #%d was queued.', 'woo-catalog-bridge'), $job_id);
+                break;
+            case 'batch_import':
+                $mode = isset($_POST['batch_mode']) ? sanitize_key(wp_unslash($_POST['batch_mode'])) : 'all';
+                $category_ids = isset($_POST['category_ids']) ? array_map('absint', (array) wp_unslash($_POST['category_ids'])) : array();
+                if (!in_array($mode, array('one', 'multiple', 'all'), true)) {
+                    wp_send_json_error(array('message' => __('Invalid batch mode.', 'woo-catalog-bridge')), 400);
+                }
+                if ('all' !== $mode && !$category_ids) {
+                    wp_send_json_error(array('message' => __('Select at least one category.', 'woo-catalog-bridge')), 400);
+                }
+                $job_id = WCB_Batch_Importer::start($mode, $category_ids);
+                $message = sprintf(__('Batch import job #%d was queued.', 'woo-catalog-bridge'), $job_id);
+                break;
+            case 'compare_products':
+                $job_id = WCB_Queue::enqueue('compare_products');
+                $message = sprintf(__('Comparison job #%d was queued.', 'woo-catalog-bridge'), $job_id);
+                break;
+            case 'price_sync':
+                $mode = isset($_POST['price_sync_mode']) ? sanitize_key(wp_unslash($_POST['price_sync_mode'])) : 'all';
+                $comparison_ids = isset($_POST['comparison_ids']) ? array_map('absint', (array) wp_unslash($_POST['comparison_ids'])) : array();
+                if (!in_array($mode, array('one', 'multiple', 'all'), true)) {
+                    wp_send_json_error(array('message' => __('Invalid price sync mode.', 'woo-catalog-bridge')), 400);
+                }
+                if ('all' !== $mode && !$comparison_ids) {
+                    wp_send_json_error(array('message' => __('Select at least one comparison row.', 'woo-catalog-bridge')), 400);
+                }
+                $job_id = WCB_Price_Sync_Engine::enqueue($mode, $comparison_ids);
+                $message = sprintf(__('Price sync job #%d was queued.', 'woo-catalog-bridge'), $job_id);
+                break;
+            case 'stock_sync':
+                $mode = isset($_POST['stock_sync_mode']) ? sanitize_key(wp_unslash($_POST['stock_sync_mode'])) : 'all';
+                $comparison_ids = isset($_POST['comparison_ids']) ? array_map('absint', (array) wp_unslash($_POST['comparison_ids'])) : array();
+                if (!in_array($mode, array('one', 'multiple', 'all'), true)) {
+                    wp_send_json_error(array('message' => __('Invalid stock sync mode.', 'woo-catalog-bridge')), 400);
+                }
+                if ('all' !== $mode && !$comparison_ids) {
+                    wp_send_json_error(array('message' => __('Select at least one comparison row.', 'woo-catalog-bridge')), 400);
+                }
+                $job_id = WCB_Stock_Sync_Engine::enqueue($mode, $comparison_ids);
+                $message = sprintf(__('Stock sync job #%d was queued.', 'woo-catalog-bridge'), $job_id);
                 break;
             case 'sync_products':
-                WCB_Repository::log('info', __('Synchronization job started.', 'woo-catalog-bridge'));
-                $message = __('Synchronization job started.', 'woo-catalog-bridge');
+                $job_id = WCB_Queue::enqueue('sync_products');
+                $message = sprintf(__('Synchronization job #%d was queued.', 'woo-catalog-bridge'), $job_id);
+                break;
+            case 'resume_job':
+                $job_id = isset($_POST['job_id']) ? absint($_POST['job_id']) : 0;
+                if (!$job_id || !WCB_Queue::resume($job_id)) {
+                    wp_send_json_error(array('message' => __('Job could not be resumed.', 'woo-catalog-bridge')), 400);
+                }
+                $message = sprintf(__('Job #%d was resumed.', 'woo-catalog-bridge'), $job_id);
+                break;
+            case 'cancel_job':
+                $job_id = isset($_POST['job_id']) ? absint($_POST['job_id']) : 0;
+                if (!$job_id || !WCB_Queue::cancel($job_id)) {
+                    wp_send_json_error(array('message' => __('Job could not be canceled.', 'woo-catalog-bridge')), 400);
+                }
+                $message = sprintf(__('Job #%d was canceled.', 'woo-catalog-bridge'), $job_id);
+                break;
+            case 'save_settings':
+                $replacement = isset($_POST['content_cleaner_replacement']) ? sanitize_text_field(wp_unslash($_POST['content_cleaner_replacement'])) : '';
+                $rules = isset($_POST['content_cleaner_rules']) ? sanitize_textarea_field(wp_unslash($_POST['content_cleaner_rules'])) : '';
+                WCB_Content_Cleaner::update_settings($replacement, $rules);
+                $message = __('Settings saved.', 'woo-catalog-bridge');
+                break;
+            case 'save_scheduler':
+                $scheduler = isset($_POST['scheduler']) ? (array) wp_unslash($_POST['scheduler']) : array();
+                WCB_Scheduler::save_settings($scheduler);
+                $message = __('Scheduler settings saved.', 'woo-catalog-bridge');
                 break;
             default:
                 wp_send_json_error(array('message' => __('Unknown task.', 'woo-catalog-bridge')), 400);
