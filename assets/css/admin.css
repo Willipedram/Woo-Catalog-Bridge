@@ -1,0 +1,17 @@
+.wcb-wrap { max-width: 1280px; }
+.wcb-grid { display: grid; gap: 16px; }
+.wcb-stats { grid-template-columns: repeat(4, minmax(160px, 1fr)); margin: 20px 0; }
+.wcb-card, .wcb-panel { background: #fff; border: 1px solid #c3c4c7; border-radius: 4px; box-shadow: 0 1px 1px rgba(0,0,0,.04); }
+.wcb-card { padding: 20px; }
+.wcb-card-label { color: #646970; display: block; font-size: 13px; margin-bottom: 10px; }
+.wcb-card strong { color: #1d2327; display: block; font-size: 34px; line-height: 1.15; }
+.wcb-panel { margin-top: 20px; padding: 20px; }
+.wcb-panel .spinner { float: none; margin-top: 4px; }
+.wcb-status, .wcb-log-level { border-radius: 999px; display: inline-block; font-size: 12px; font-weight: 600; padding: 3px 9px; }
+.wcb-status-discovered { background: #e7f5ff; color: #006ba1; }
+.wcb-status-imported { background: #edfaef; color: #008a20; }
+.wcb-status-error, .wcb-log-error { background: #fcf0f1; color: #b32d2e; }
+.wcb-log-info { background: #f0f6fc; color: #135e96; }
+.wcb-log-warning { background: #fcf9e8; color: #996800; }
+@media screen and (max-width: 960px) { .wcb-stats { grid-template-columns: repeat(2, minmax(160px, 1fr)); } }
+@media screen and (max-width: 600px) { .wcb-stats { grid-template-columns: 1fr; } .wcb-card strong { font-size: 28px; } .wcb-panel { padding: 14px; } }
